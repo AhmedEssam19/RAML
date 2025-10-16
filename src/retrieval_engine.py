@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict, Optional, Tuple
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from config import CONFIG, BEHAVIOR_DESCRIPTIONS, BEHAVIOR_QUERIES
 from logger import logger
@@ -14,9 +14,9 @@ class MalwareRetrievalEngine:
     """Retrieval engine for Smali malware analysis."""
     
     def __init__(self, vectorstore_path: str = None):
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=CONFIG["openai"]["api_key"],
-            model=CONFIG["openai"]["embedding_model"]
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=CONFIG["huggingface"]["embedding_model"],
+            query_encode_kwargs={"prompt_name": "query"}
         )
         
         if vectorstore_path:
@@ -272,74 +272,6 @@ EXPLANATION: These methods work together to...
             pass
         return "unknown_method"
     
-    def _analyze_method_relevance_for_behavior(self, method: Dict, behavior_id: int, behavior_description: str) -> Tuple[float, str]:
-        """Analyze method relevance to a specific behavior and explain its role."""
-        try:
-            prompt = f"""
-            The following is a Smali method that belongs to a class that performs Behavior {behavior_id}: {behavior_description}
-            Analyze this Smali method's relevance to Behavior {behavior_id}.
-            
-            Method: {method['signature']}
-            Method Content: {method['content']}
-            
-            Please provide:
-            1. Relevance score (0.0 to 1.0) - how relevant is this method to Behavior {behavior_id}
-            2. Detailed explanation of the method's role in contributing to this specific behavior
-            
-            Respond in JSON format:
-            {{
-                "relevance_score": 0.8,
-                "role_explanation": "This method specifically handles the network communication aspect of data exfiltration by establishing HTTP connections and sending collected data to remote servers. It implements the core functionality needed for the data exfiltration behavior."
-            }}
-            """
-            
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": "You are a malware analyst. Analyze method relevance and provide detailed explanations of how methods contribute to specific malicious behaviors."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=CONFIG["openai"]["temperature"],
-                max_tokens=400
-            )
-            
-            result = json.loads(response.choices[0].message.content.strip())
-            return result['relevance_score'], result['role_explanation']
-            
-        except Exception as e:
-            logger.error(f"Error analyzing method relevance for behavior: {e}")
-            return 0.0, "No explanation available."
-    
-    def _generate_class_explanation(self, doc: Document, behavior_query: str, score: float) -> str:
-        """Generate explanation for why a class is relevant to a behavior."""
-        try:
-            prompt = f"""
-            Explain why this Smali class is relevant to the malicious behavior: "{behavior_query}"
-            
-            Class: {doc.metadata['class_name']}
-            Description: {doc.page_content}
-            Permissions: {', '.join(doc.metadata['permissions'].split(', ') if doc.metadata['permissions'] else [])}
-            API Calls: {', '.join(doc.metadata['api_calls'].split(', ')[:5] if doc.metadata['api_calls'] else [])}
-            Similarity Score: {score:.3f}
-            
-            Provide a brief explanation of the class's role in this malicious behavior:
-            """
-            
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": "You are a malware analyst. Provide concise explanations of class relevance to malicious behaviors."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=CONFIG["openai"]["temperature"],
-                max_tokens=200
-            )
-            
-            return response.choices[0].message.content.strip()
-            
-        except Exception as e:
-            logger.error(f"Error generating class explanation: {e}")
-            return f"Class shows relevance to {behavior_query} with similarity score {score:.3f}"
     
     def _extract_methods_from_content(self, content: str) -> List[Dict]:
         """Extract method information from raw Smali content."""
@@ -378,40 +310,3 @@ EXPLANATION: These methods work together to...
                 return start_pos + len('\n'.join(lines[:i+1]))
         
         return len(content)
-    
-    def _analyze_method_relevance(self, method: Dict, behavior_query: str) -> Tuple[float, str]:
-        """Analyze method relevance to behavior and explain its role dynamically."""
-        try:
-            prompt = f"""
-            Analyze this Smali method's relevance to the malicious behavior: "{behavior_query}"
-            
-            Method: {method['signature']}
-            Method Content: {method['content'][:500]}...
-            
-            Please provide:
-            1. Relevance score (0.0 to 1.0) - how relevant is this method to the behavior
-            2. Detailed explanation of the method's role in contributing to this specific malicious behavior
-            
-            Respond in JSON format:
-            {{
-                "relevance_score": 0.8,
-                "role_explanation": "This method specifically handles the network communication aspect of data exfiltration by establishing HTTP connections and sending collected data to remote servers. It implements the core functionality needed for the data exfiltration behavior."
-            }}
-            """
-            
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": "You are a malware analyst. Analyze method relevance and provide detailed explanations of how methods contribute to specific malicious behaviors."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=CONFIG["openai"]["temperature"],
-                max_tokens=400
-            )
-            
-            result = json.loads(response.choices[0].message.content.strip())
-            return result['relevance_score'], result['role_explanation']
-            
-        except Exception as e:
-            logger.error(f"Error analyzing method relevance: {e}")
-            return 0.0, "No explanation available." 

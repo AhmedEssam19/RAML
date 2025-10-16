@@ -249,6 +249,9 @@ CONFIG = {
         "temperature": 0.1,
         "max_tokens": 32000
     },
+    "huggingface": {
+        "embedding_model": "Qwen/Qwen3-Embedding-0.6B"
+    },
     "vectorstore": {
         "type": "chroma",
         "persist_directory": "./smali_vectorstore",
