@@ -7,7 +7,9 @@ from config import CONFIG, BEHAVIOR_DESCRIPTIONS, BEHAVIOR_QUERIES
 from logger import logger
 import json
 from openai import OpenAI
+from langfuse import get_client
 
+langfuse = get_client()
 openai_client = OpenAI(api_key=CONFIG["openai"]["api_key"])
 
 class MalwareRetrievalEngine:
@@ -104,27 +106,16 @@ class MalwareRetrievalEngine:
     def _assess_class_relevance(self, doc: Document, behavior_id: int, behavior_description: str, vector_score: float) -> Tuple[float, str]:
         """Use LLM to assess class relevance to a specific behavior and provide explanation."""
         try:
-            prompt = f"""
-            You are an expert in Android malware analysis. Analyze the following Smali class:
-            {doc.metadata['raw_content']}
-            
-            Does this class perform Behavior {behavior_id}: {behavior_description}?
-            
-            Provide:
-            1. A relevance score from 0.0 to 1.0 (where 1.0 = highly relevant)
-            2. A brief explanation of why it is or isn't relevant
-            3. If relevant, list the specific APIs/methods that indicate this behavior
-            
-            Format your response as:
-            Score: [0.0-1.0]
-            Explanation: [your explanation]
-            Relevant APIs: [list of relevant APIs/methods if any]
-            """
-            
+            prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_prompt"]).compile(
+                smali_class_content=doc.metadata['raw_content'],
+                behavior_id=behavior_id,
+                behavior_description=behavior_description
+            )
+
             response = openai_client.chat.completions.create(
                 model=CONFIG["openai"]["model"],
                 messages=[
-                    {"role": "system", "content": "You are a malware analyst. Assess class relevance to specific malicious behaviors and provide detailed explanations."},
+                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile()},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=CONFIG["openai"]["temperature"],
@@ -160,40 +151,15 @@ class MalwareRetrievalEngine:
     def _analyze_methods_with_class_context(self, class_content: str, behavior_id: int, behavior_description: str, first_stage_explanation: str) -> List[Dict]:
         """Analyze all methods in a class together using the entire class context."""
         try:
-            prompt = f"""
-You are an expert in Android malware analysis. The following Smali class has been identified as implementing one or several malicious behaviors in the first stage. 
-Analyze the class and identify all methods that are involved in implementing these behaviors.
-
-First Stage Explanation of Identified Malicious Behavior(s):
-{first_stage_explanation}
-
-Smali Class:
-{class_content}
-
-IMPORTANT: For each method involved in the behavior, output the following fields, one per line, for each method:
-METHOD: <the first line of the method exactly as it appears in the Smali code, including all access modifiers, names, and parameters>
-ROLE: <role description>
-CONFIDENCE: <confidence score 0-100>
-
-After listing all methods, provide a final explanation as follows:
-EXPLANATION: <detailed explanation of how these methods work together to implement the behavior>
-
-Example output format:
-METHOD: .method public onCreateView(Landroid/view/LayoutInflater;Landroid/view/ViewGroup;Landroid/os/Bundle;)Landroid/view/View;
-ROLE: This method inflates the view and sets up the UI components
-CONFIDENCE: 90
-
-METHOD: .method synthetic lambda$onCreateView$2$lu-snt-trux-koopaapp-ui-home-RequestData2Fragment(Landroid/view/View;)V
-ROLE: This method handles click events on the view
-CONFIDENCE: 85
-
-EXPLANATION: These methods work together to...
-"""
+            prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_prompt"]).compile(
+                first_stage_explanation=first_stage_explanation,
+                class_content=class_content
+            )
             
             response = openai_client.chat.completions.create(
                 model=CONFIG["openai"]["model"],
                 messages=[
-                    {"role": "system", "content": "You are a malware analyst specializing in Android Smali code analysis. Analyze class methods in context and identify their roles in malicious behaviors."},
+                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile()},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=CONFIG["openai"]["temperature"],

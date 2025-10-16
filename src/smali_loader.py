@@ -7,7 +7,9 @@ from smali_parser import SmaliParser
 from config import CONFIG
 from logger import logger
 from openai import OpenAI
-
+from langfuse import get_client
+ 
+langfuse = get_client()
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=CONFIG["openai"]["api_key"])
 
@@ -121,52 +123,11 @@ class SmaliFolderLoader(BaseLoader):
     def _generate_class_description_with_content(self, cleaned_content: str) -> str:
         """Generate natural language description of the Smali class using the full cleaned content."""
         try:
-            prompt = f"""
-You are an expert malware analyst. Given the following Smali class, generate a comprehensive description that covers all potential malicious behaviors.
-
-Your description should include:
-
-1. **Core Functionality:**
-   - What does this class do? (Fragment, Service, Activity, etc.)
-   - Key Android APIs and system calls used
-   - Main workflows and data flows
-
-2. **Data Access Patterns:**
-   - What sensitive data does it access? (contacts, SMS, location, etc.)
-   - Which permissions does it request or check?
-   - How does it access this data? (ContentResolver, TelephonyManager, etc.)
-
-3. **Network Communication:**
-   - Does it make network requests?
-   - What endpoints does it contact? (hardcoded IPs, domains)
-   - What data does it send/receive?
-
-4. **Suspicious Behaviors:**
-   - Any hardcoded suspicious values (IPs, URLs, commands)
-   - Permission abuse patterns (immediate use after grant)
-   - Data exfiltration indicators
-   - Communication interception patterns
-
-5. **Malware Indicators:**
-   - Evasion techniques
-   - Dynamic code loading
-   - Anti-analysis measures
-
-INSTRUCTIONS:
-- ONLY describe behaviors that are PRESENT in this class, supported by concrete evidence.
-- Do NOT mention or list behaviors that are absent. Do NOT use phrases like 'No evidence of ...' or 'No concrete evidence ...'.
-- Be specific about API calls, permissions, and patterns.
-- Use clear, technical language suitable for retrieval and malware analysis.
-- Make the output CONCISE and focused for retrieval.
-- Use specific Android API names, permission names, and technical details.
-
-Class Smali Content:
-{cleaned_content}
-"""
+            prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_prompt"]).compile(smali_content=cleaned_content)
             response = openai_client.chat.completions.create(
                 model=CONFIG["openai"]["model"],
                 messages=[
-                    {"role": "system", "content": "You are a malware analyst specializing in Android Smali code analysis. Focus on concrete technical behaviors, API calls, and patterns that indicate specific malware functionality. Be concise and specific. Use precise terminology that matches malware behavior descriptions."},
+                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_system_prompt"]).compile()},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=CONFIG["openai"]["temperature"],

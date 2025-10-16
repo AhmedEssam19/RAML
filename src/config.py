@@ -244,7 +244,7 @@ BEHAVIOR_QUERIES = {
 CONFIG = {
     "openai": {
         "api_key": os.getenv("OPENAI_API_KEY"),
-        "model": "gpt-4.1",
+        "model": "qwen/qwen3-235b-a22b:free",
         "embedding_model": "text-embedding-ada-002",
         "temperature": 0.1,
         "max_tokens": 32000
@@ -271,5 +271,18 @@ CONFIG = {
         "format": "json",
         "include_explanations": True,
         "output_dir": "./output"
+    },
+    "langfuse": {
+        "public_key": os.getenv("LANGFUSE_API_KEY"),
+        "secret_key": os.getenv("LANGFUSE_SECRET_KEY"),
+        "project_id": os.getenv("LANGFUSE_PROJECT_ID"),
+        "prompt_names": {
+            "smali_class_description_system_prompt": "smali_class_description/system_prompt",
+            "smali_class_description_prompt": "smali_class_description/prompt",
+            "class_relevance_system_prompt": "class_relevance/system_prompt",
+            "class_relevance_prompt": "class_relevance/prompt",
+            "method_analysis_system_prompt": "method_analysis/system_prompt",
+            "method_analysis_prompt": "method_analysis/prompt"
+        }
     }
 } 
