@@ -6,12 +6,12 @@ from langchain.schema import Document
 from smali_parser import SmaliParser
 from config import CONFIG
 from logger import logger
-from openai import OpenAI
+from llm import LLM
 from langfuse import get_client
  
 langfuse = get_client()
 # Initialize OpenAI client
-openai_client = OpenAI(api_key=CONFIG["openai"]["api_key"])
+llm = LLM(model=CONFIG["openai"]["model"])
 
 class SmaliFolderLoader(BaseLoader):
     """LangChain document loader for Smali files in folders."""
@@ -124,16 +124,12 @@ class SmaliFolderLoader(BaseLoader):
         """Generate natural language description of the Smali class using the full cleaned content."""
         try:
             prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_prompt"]).compile(smali_content=cleaned_content)
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_system_prompt"]).compile()},
-                    {"role": "user", "content": prompt}
-                ],
+            result = llm.generate_text(
+                system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_system_prompt"]).compile(),
+                prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
                 max_tokens=1000
             )
-            result = response.choices[0].message.content.strip()
             return result
         except Exception as e:
             logger.error(f"Error generating description with full content: {e}")

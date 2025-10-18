@@ -6,11 +6,11 @@ from langchain.schema import Document
 from config import CONFIG, BEHAVIOR_DESCRIPTIONS, BEHAVIOR_QUERIES
 from logger import logger
 import json
-from openai import OpenAI
+from llm import LLM
 from langfuse import get_client
 
 langfuse = get_client()
-openai_client = OpenAI(api_key=CONFIG["openai"]["api_key"])
+llm = LLM(model=CONFIG["openai"]["model"])
 
 class MalwareRetrievalEngine:
     """Retrieval engine for Smali malware analysis."""
@@ -112,18 +112,13 @@ class MalwareRetrievalEngine:
                 behavior_description=behavior_description
             )
 
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile()},
-                    {"role": "user", "content": prompt}
-                ],
+            result = llm.generate_text(
+                system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_system_prompt"]).compile(),
+                prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
                 max_tokens=300
             )
-            
-            result = response.choices[0].message.content.strip()
-            
+                        
             # Parse the response to extract score and explanation
             lines = result.split('\n')
             score = 0.0
@@ -156,18 +151,13 @@ class MalwareRetrievalEngine:
                 class_content=class_content
             )
             
-            response = openai_client.chat.completions.create(
-                model=CONFIG["openai"]["model"],
-                messages=[
-                    {"role": "system", "content": langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile()},
-                    {"role": "user", "content": prompt}
-                ],
+            result = llm.generate_text(
+                system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile(),
+                prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
                 max_tokens=1000
             )
-            
-            result = response.choices[0].message.content.strip()
-            
+                        
             # Parse the response to extract methods and their roles
             involved_methods = self._parse_method_analysis_response(result)
             
