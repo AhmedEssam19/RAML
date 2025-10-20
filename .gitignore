@@ -7,3 +7,4 @@ __pycache__/
 APKs/
 logs/
 output/
+smali_vectorstore/
