@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict, Optional, Tuple
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from config import CONFIG, BEHAVIOR_DESCRIPTIONS, BEHAVIOR_QUERIES
@@ -18,14 +18,15 @@ class MalwareRetrievalEngine:
     def __init__(self, vectorstore_path: str = None):
         self.embeddings = HuggingFaceEmbeddings(
             model_name=CONFIG["huggingface"]["embedding_model"],
-            query_encode_kwargs={"prompt_name": "query"}
+            query_encode_kwargs={"prompt_name": "query", "normalize_embeddings": True},
+            encode_kwargs={"prompt_name": "document", "normalize_embeddings": True},
         )
         
         if vectorstore_path:
             self.vectorstore = Chroma(
                 persist_directory=vectorstore_path,
                 embedding_function=self.embeddings,
-                collection_name=CONFIG["vectorstore"]["collection_name"]
+                collection_name=CONFIG["vectorstore"]["collection_name"],
             )
         else:
             self.vectorstore = None
@@ -40,7 +41,6 @@ class MalwareRetrievalEngine:
             persist_directory=CONFIG["vectorstore"]["persist_directory"],
             collection_name=CONFIG["vectorstore"]["collection_name"]
         )
-        self.vectorstore.persist()
         logger.info(f"Vector store created with {len(documents)} documents")
     
     def retrieve_classes_for_behavior(self, behavior_id: int) -> List[Dict]:
@@ -111,7 +111,7 @@ class MalwareRetrievalEngine:
                 behavior_id=behavior_id,
                 behavior_description=behavior_description
             )
-
+            assert "{{" not in prompt, "Unresolved placeholders in class relevance prompt"
             result = llm.generate_text(
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_system_prompt"]).compile(),
                 prompt=prompt,
@@ -148,9 +148,9 @@ class MalwareRetrievalEngine:
         try:
             prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_prompt"]).compile(
                 first_stage_explanation=first_stage_explanation,
-                class_content=class_content
+                smali_class_content=class_content
             )
-            
+            assert "{{" not in prompt, "Unresolved placeholders in method analysis prompt"
             result = llm.generate_text(
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile(),
                 prompt=prompt,
