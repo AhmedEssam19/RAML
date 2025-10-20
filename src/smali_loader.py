@@ -123,7 +123,8 @@ class SmaliFolderLoader(BaseLoader):
     def _generate_class_description_with_content(self, cleaned_content: str) -> str:
         """Generate natural language description of the Smali class using the full cleaned content."""
         try:
-            prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_prompt"]).compile(smali_content=cleaned_content)
+            prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_prompt"]).compile(smali_class_content=cleaned_content)
+            assert "{{" not in prompt, "Unresolved placeholders in class description prompt"
             result = llm.generate_text(
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_system_prompt"]).compile(),
                 prompt=prompt,

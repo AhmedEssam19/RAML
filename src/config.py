@@ -250,7 +250,7 @@ CONFIG = {
         "max_tokens": 32000
     },
     "huggingface": {
-        "embedding_model": "Qwen/Qwen3-Embedding-0.6B"
+        "embedding_model": "NovaSearch/stella_en_1.5B_v5"
     },
     "vectorstore": {
         "type": "chroma",

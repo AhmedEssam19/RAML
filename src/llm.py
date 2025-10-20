@@ -7,7 +7,7 @@ class LLM:
         self.client = OpenAI()
         self.model = model
 
-    @retry(wait=wait_exponential(min=1, max=120), stop=stop_after_attempt(10), reraise=True)
+    @retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(5), reraise=True)
     def generate_text(self, system_prompt: str, prompt: str, temperature: float, max_tokens: int) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
