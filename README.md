@@ -22,6 +22,43 @@ RAML addresses the challenge of localizing exact malicious payloads in Android a
 
 ## Installation
 
+```bash
+pip install uv
+```
+
+## Usage
+
+### 1. Sync Dependencies
+
+First, synchronize the project dependencies using `uv`:
+
+```bash
+uv sync
+```
+
+### 2. Use apktool to convert APK to Smali
+
+```bash
+apktool decode <path/to/your/app.apk> -o <path/to/output/directory>
+```
+
+### 3. Run the Main Application
+
+Execute the main analysis script:
+
+```bash
+uv run src/main.py <path/to/your/smali_code> --behaviors <space separated list of behavior ids>
+```
+
+### 4. Run the Evaluation Script
+
+After analysis, evaluate the predictions against ground truth:
+
+```bash
+uv run src/evaluate_predictions.py --ground_truth <path/to/ground_truth.json> --predictions <path/to/predictions.json>
+```
+
+This will compute precision, recall, and F1-scores for the localization results.
 
 ### Behavior Categories
 
