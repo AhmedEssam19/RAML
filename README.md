@@ -22,25 +22,6 @@ RAML addresses the challenge of localizing exact malicious payloads in Android a
 
 ## Installation
 
-```bash
-git clone <repository-url>
-cd RAML
-pip install -r requirements.txt
-echo "OPENAI_API_KEY=your_key_here" > .env
-```
-
-## Usage
-
-```bash
-python main.py /path/to/smali/folder --behaviors 1 3 4 --app-name "app_name"
-```
-
-### Arguments
-- `smali_folder`: Path to Smali files (required)
-- `--behaviors`: Behavior IDs to analyze (1-12, required)
-- `--app-name`: App name (optional)
-- `--output-dir`: Output directory (optional)
-- `--force-rebuild`: Rebuild vector store (optional)
 
 ### Behavior Categories
 
