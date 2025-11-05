@@ -244,7 +244,7 @@ BEHAVIOR_QUERIES = {
 CONFIG = {
     "openai": {
         "api_key": os.getenv("OPENAI_API_KEY"),
-        "model": "google/gemma-3-27b-it:free",
+        "model": "qwen/qwen3-235b-a22b-2507",
         "embedding_model": "text-embedding-ada-002",
         "temperature": 0.1,
         "max_tokens": 32000
