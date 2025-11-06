@@ -74,7 +74,7 @@ class MalwareRetrievalEngine:
                 doc, behavior_id, behavior_description, score
             )
             
-            if relevance_score >= 0.5:  # Threshold for relevance
+            if relevance_score >= 0.85:  # Threshold for relevance
                 re_ranked_results.append({
                     'class_name': doc.metadata['class_name'],
                     'class_signature': class_signature,
