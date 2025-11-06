@@ -247,7 +247,7 @@ CONFIG = {
         "model": "qwen/qwen3-235b-a22b-2507",
         "embedding_model": "text-embedding-ada-002",
         "temperature": 0.1,
-        "max_tokens": 32000
+        "max_tokens": 4069
     },
     "huggingface": {
         "embedding_model": "NovaSearch/stella_en_1.5B_v5"
@@ -260,7 +260,7 @@ CONFIG = {
     "retrieval": {
         "top_k_classes": 5,
         "top_k_methods_per_class": 10,
-        "similarity_threshold": 0.5
+        "relevance_threshold": 0.85
     },
     "processing": {
         "chunk_size": 32000,
