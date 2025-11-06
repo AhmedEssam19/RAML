@@ -129,7 +129,7 @@ class SmaliFolderLoader(BaseLoader):
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["smali_class_description_system_prompt"]).compile(),
                 prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
-                max_tokens=1000
+                max_tokens=CONFIG["openai"]["max_tokens"]
             )
             return result
         except Exception as e:

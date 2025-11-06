@@ -74,7 +74,7 @@ class MalwareRetrievalEngine:
                 doc, behavior_id, behavior_description, score
             )
             
-            if relevance_score >= 0.85:  # Threshold for relevance
+            if relevance_score >= CONFIG["retrieval"]["relevance_threshold"]:
                 re_ranked_results.append({
                     'class_name': doc.metadata['class_name'],
                     'class_signature': class_signature,
@@ -116,7 +116,7 @@ class MalwareRetrievalEngine:
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_system_prompt"]).compile(),
                 prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
-                max_tokens=300
+                max_tokens=CONFIG["openai"]["max_tokens"]
             )
                         
             # Parse the response to extract score and explanation
@@ -155,7 +155,7 @@ class MalwareRetrievalEngine:
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile(),
                 prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
-                max_tokens=1000
+                max_tokens=CONFIG["openai"]["max_tokens"]
             )
                         
             # Parse the response to extract methods and their roles
