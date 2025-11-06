@@ -2,6 +2,7 @@ from openai import OpenAI
 from tenacity import retry, wait_exponential, stop_after_attempt
 from langfuse import observe, propagate_attributes, get_client
 from config import CONFIG
+from logger import logger
 
 langfuse = get_client()
 
@@ -38,5 +39,6 @@ class LLM:
                     "total": response.usage.cost
                 }
             )
- 
+            if response.choices[0].finish_reason != "stop":
+                logger.warning(f"LLM response finished unexpectedly. Reason: {response.choices[0].finish_reason}")
             return response.choices[0].message.content.strip()
