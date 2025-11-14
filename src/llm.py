@@ -8,10 +8,22 @@ from asyncio import Semaphore
 langfuse = get_client()
 
 class LLM:
-    def __init__(self, model: str):
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(LLM, cls).__new__(cls,*args, **kwargs)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+        
         self.client = AsyncOpenAI()
-        self.model = model
-        self.semaphore = Semaphore(32)
+        self.model = CONFIG["openai"]["model"]
+        self.semaphore = Semaphore(CONFIG["openai"]["concurrency_limit"])
+        self._initialized = True
 
     @retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(5), reraise=True)
     @observe(as_type="generation")
@@ -46,5 +58,3 @@ class LLM:
                     logger.warning(f"LLM response finished unexpectedly. Reason: {response.choices[0].finish_reason}")
                 return response.choices[0].message.content.strip()
 
-
-llm = LLM(CONFIG["openai"]["model"])

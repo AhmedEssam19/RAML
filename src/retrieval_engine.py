@@ -1,17 +1,16 @@
 import asyncio
-import os
+
 from typing import List, Dict, Optional, Tuple
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from config import CONFIG, BEHAVIOR_DESCRIPTIONS, BEHAVIOR_QUERIES
 from logger import logger
-import json
 from llm import LLM
 from langfuse import get_client
 
 langfuse = get_client()
-llm = LLM(model=CONFIG["openai"]["model"])
+llm = LLM()
 
 class MalwareRetrievalEngine:
     """Retrieval engine for Smali malware analysis."""

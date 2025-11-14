@@ -8,12 +8,12 @@ from langchain.schema import Document
 from smali_parser import SmaliParser
 from config import CONFIG
 from logger import logger
-from llm import llm
+from llm import LLM
 from langfuse import get_client
  
 langfuse = get_client()
 # Initialize OpenAI client
-llm = llm
+llm = LLM()
 
 class SmaliFolderLoader(BaseLoader):
     """LangChain document loader for Smali files in folders."""

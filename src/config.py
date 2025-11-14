@@ -247,7 +247,8 @@ CONFIG = {
         "model": "qwen/qwen3-235b-a22b-2507",
         "embedding_model": "text-embedding-ada-002",
         "temperature": 0.1,
-        "max_tokens": 4069
+        "max_tokens": 4069,
+        "concurrency_limit": 16
     },
     "huggingface": {
         "embedding_model": "NovaSearch/stella_en_1.5B_v5"
