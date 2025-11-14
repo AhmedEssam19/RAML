@@ -4,6 +4,7 @@ Main application for Smali Malware Analysis RAG System
 Using LangChain v0.1.16 for retrieval-augmented generation
 """
 
+import asyncio
 import os
 import sys
 import argparse
@@ -33,7 +34,7 @@ class SmaliMalwareAnalyzer:
         if not CONFIG["openai"]["api_key"]:
             raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in .env file")
     
-    def setup_system(self, force_rebuild: bool = False):
+    async def setup_system(self, force_rebuild: bool = False):
         """Set up the RAG system (load documents and create vector store)."""
         logger.info("Setting up Smali Malware Analysis RAG System...")
         
@@ -44,15 +45,15 @@ class SmaliMalwareAnalyzer:
             self.retrieval_engine = MalwareRetrievalEngine(vectorstore_path)
         else:
             logger.info("Creating new vector store...")
-            self._create_vectorstore()
+            await self._create_vectorstore()
     
-    def _create_vectorstore(self):
+    async def _create_vectorstore(self):
         """Create vector store from Smali files."""
         logger.info(f"Loading Smali files from: {self.smali_folder}")
         
         # Load Smali documents
         self.loader = SmaliFolderLoader(self.smali_folder)
-        documents = self.loader.load()
+        documents = await self.loader.load()
         
         if not documents:
             raise ValueError(f"No Smali files found in {self.smali_folder}")
@@ -67,7 +68,7 @@ class SmaliMalwareAnalyzer:
         
         logger.info("Vector store created successfully!")
     
-    def analyze_behaviors(self, behavior_ids: List[int], app_name: str = None) -> Dict:
+    async def analyze_behaviors(self, behavior_ids: List[int], app_name: str = None) -> Dict:
         """Analyze specified behaviors for the Smali files."""
         if not self.retrieval_engine:
             raise ValueError("System not set up. Call setup_system() first.")
@@ -96,7 +97,7 @@ class SmaliMalwareAnalyzer:
             logger.info(f"Analyzing Behavior {behavior_id}: {behavior_name}")
             
             # Retrieve relevant classes
-            class_results = self.retrieval_engine.retrieve_classes_for_behavior(behavior_id)
+            class_results = await self.retrieval_engine.retrieve_classes_for_behavior(behavior_id)
             
             if not class_results:
                 logger.info(f"No relevant classes found for behavior {behavior_id}")
@@ -112,7 +113,7 @@ class SmaliMalwareAnalyzer:
             # Analyze methods in each class
             for class_result in class_results:
                 logger.debug(f"Analyzing methods in {class_result['class_name']}")
-                involved_methods = self.retrieval_engine.analyze_methods_in_class(
+                involved_methods = await self.retrieval_engine.analyze_methods_in_class(
                     class_result, behavior_id
                 )
                 class_result['involved_methods'] = involved_methods
@@ -162,7 +163,7 @@ class SmaliMalwareAnalyzer:
         
         return json_path
 
-def main():
+async def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Smali Malware Analysis RAG System")
     parser.add_argument("smali_folder", help="Path to folder containing Smali files")
@@ -188,10 +189,10 @@ def main():
         analyzer = SmaliMalwareAnalyzer(args.smali_folder, args.output_dir)
         
         # Setup system
-        analyzer.setup_system(force_rebuild=args.force_rebuild)
+        await analyzer.setup_system(force_rebuild=args.force_rebuild)
         
         # Analyze behaviors
-        report = analyzer.analyze_behaviors(args.behaviors, args.app_name)
+        report = await analyzer.analyze_behaviors(args.behaviors, args.app_name)
         
         # Save results
         analyzer.save_results(report, save_summary=not args.no_summary)
@@ -203,4 +204,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    asyncio.run(main())

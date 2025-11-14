@@ -43,7 +43,7 @@ class MalwareRetrievalEngine:
         )
         logger.info(f"Vector store created with {len(documents)} documents")
     
-    def retrieve_classes_for_behavior(self, behavior_id: int) -> List[Dict]:
+    async def retrieve_classes_for_behavior(self, behavior_id: int) -> List[Dict]:
         """Retrieve relevant classes for a specific behavior using two-stage retrieval."""
         if not self.vectorstore:
             raise ValueError("Vector store not initialized")
@@ -70,7 +70,7 @@ class MalwareRetrievalEngine:
             seen_signatures.add(class_signature)
             
             # Assess relevance using LLM
-            relevance_score, explanation = self._assess_class_relevance(
+            relevance_score, explanation = await self._assess_class_relevance(
                 doc, behavior_id, behavior_description, score
             )
             
@@ -88,7 +88,7 @@ class MalwareRetrievalEngine:
         re_ranked_results.sort(key=lambda x: x['llm_relevance_score'], reverse=True)
         return re_ranked_results[:CONFIG["retrieval"]["top_k_classes"]]
     
-    def analyze_methods_in_class(self, class_result: Dict, behavior_id: int) -> List[Dict]:
+    async def analyze_methods_in_class(self, class_result: Dict, behavior_id: int) -> List[Dict]:
         """Analyze methods within a class to identify those involved in the behavior."""
         behavior_description = BEHAVIOR_DESCRIPTIONS[behavior_id]
         
@@ -97,13 +97,13 @@ class MalwareRetrievalEngine:
         first_stage_explanation = class_result['explanation']
         
         # Analyze all methods together using the entire class context
-        involved_methods = self._analyze_methods_with_class_context(
+        involved_methods = await self._analyze_methods_with_class_context(
             raw_content, behavior_id, behavior_description, first_stage_explanation
         )
         
         return involved_methods[:CONFIG["retrieval"]["top_k_methods_per_class"]]
     
-    def _assess_class_relevance(self, doc: Document, behavior_id: int, behavior_description: str, vector_score: float) -> Tuple[float, str]:
+    async def _assess_class_relevance(self, doc: Document, behavior_id: int, behavior_description: str, vector_score: float) -> Tuple[float, str]:
         """Use LLM to assess class relevance to a specific behavior and provide explanation."""
         try:
             prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_prompt"]).compile(
@@ -112,7 +112,7 @@ class MalwareRetrievalEngine:
                 behavior_description=behavior_description
             )
             assert "{{" not in prompt, "Unresolved placeholders in class relevance prompt"
-            result = llm.generate_text(
+            result = await llm.generate_text(
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["class_relevance_system_prompt"]).compile(),
                 prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
@@ -143,7 +143,7 @@ class MalwareRetrievalEngine:
             logger.error(f"Error assessing class relevance: {e}")
             return 0.0, f"Error in assessment. Vector similarity score: {vector_score:.3f}"
     
-    def _analyze_methods_with_class_context(self, class_content: str, behavior_id: int, behavior_description: str, first_stage_explanation: str) -> List[Dict]:
+    async def _analyze_methods_with_class_context(self, class_content: str, behavior_id: int, behavior_description: str, first_stage_explanation: str) -> List[Dict]:
         """Analyze all methods in a class together using the entire class context."""
         try:
             prompt = langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_prompt"]).compile(
@@ -151,7 +151,7 @@ class MalwareRetrievalEngine:
                 smali_class_content=class_content
             )
             assert "{{" not in prompt, "Unresolved placeholders in method analysis prompt"
-            result = llm.generate_text(
+            result = await llm.generate_text(
                 system_prompt=langfuse.get_prompt(CONFIG["langfuse"]["prompt_names"]["method_analysis_system_prompt"]).compile(),
                 prompt=prompt,
                 temperature=CONFIG["openai"]["temperature"],
