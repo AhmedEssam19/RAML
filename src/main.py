@@ -88,47 +88,33 @@ class SmaliMalwareAnalyzer:
         total_relevant_classes = 0
         total_methods_analyzed = 0
         
+        filtered_behavior_ids = []
         for behavior_id in tqdm(behavior_ids, desc="Analyzing behaviors"):
             if behavior_id not in BEHAVIOR_DESCRIPTIONS:
                 logger.warning(f"Behavior ID {behavior_id} not found. Skipping.")
                 continue
+            filtered_behavior_ids.append(behavior_id)
             
-            behavior_name = BEHAVIOR_DESCRIPTIONS[behavior_id]
-            logger.info(f"Analyzing Behavior {behavior_id}: {behavior_name}")
-            
-            # Retrieve relevant classes
-            class_results = await self.retrieval_engine.retrieve_classes_for_behavior(behavior_id)
-            
-            if not class_results:
-                logger.info(f"No relevant classes found for behavior {behavior_id}")
-                behavior_results.append({
-                    "behavior_id": behavior_id,
-                    "class_results": []
-                })
+        tasks = [
+            self.retrieval_engine.retrieve_classes_for_behavior(behavior_id)
+            for behavior_id in filtered_behavior_ids
+        ]
+        classes_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        tasks = [
+            self._analyze_methods(behavior_id, class_results)
+            for behavior_id, class_results in zip(filtered_behavior_ids, classes_results)
+            if not isinstance(class_results, Exception)
+        ]
+        behavior_analysis_results = await asyncio.gather(*tasks, return_exceptions=True)        
+        for behavior_result, num_methods_involved in behavior_analysis_results:
+            if isinstance(behavior_result, Exception):
+                logger.error(f"Error analyzing behavior {behavior_id}: {behavior_result}")
                 continue
-            
-            logger.info(f"Found {len(class_results)} relevant classes")
-            total_relevant_classes += len(class_results)
-            
-            # Analyze methods in each class
-            for class_result in class_results:
-                logger.debug(f"Analyzing methods in {class_result['class_name']}")
-                involved_methods = await self.retrieval_engine.analyze_methods_in_class(
-                    class_result, behavior_id
-                )
-                class_result['involved_methods'] = involved_methods
-                total_methods_analyzed += len(involved_methods)
-                logger.debug(f"Found {len(involved_methods)} involved methods")
-            
-            # Log behavior analysis results
-            logger.log_behavior_analysis(behavior_id, behavior_name, {
-                "class_results": class_results
-            })
-            
-            behavior_results.append({
-                "behavior_id": behavior_id,
-                "class_results": class_results
-            })
+
+            behavior_results.append(behavior_result)
+            total_relevant_classes += len(behavior_result["class_results"])
+            total_methods_analyzed += num_methods_involved
         
         # Calculate analysis duration
         duration = time.time() - self.start_time
@@ -146,6 +132,48 @@ class SmaliMalwareAnalyzer:
         report = self.report_generator.generate_behavior_report(app_name, behavior_results)
         
         return report
+    
+    async def _analyze_methods(self, behavior_id: int, class_results: List[Dict]) -> List[Dict]:
+        # Retrieve relevant classes
+        total_methods_analyzed = 0
+        behavior_name = BEHAVIOR_DESCRIPTIONS[behavior_id]
+        logger.info(f"Analyzing Behavior {behavior_id}: {behavior_name}")
+        
+        if not class_results:
+            logger.info(f"No relevant classes found for behavior {behavior_id}")
+            return {
+                "behavior_id": behavior_id,
+                "class_results": []
+            }, 0
+        
+        logger.info(f"Found {len(class_results)} relevant classes")
+        
+        tasks = [
+            self.retrieval_engine.analyze_methods_in_class(class_result, behavior_id)
+            for class_result in class_results
+        ]
+        classes_involved_methods = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Analyze methods in each class
+        for class_result, involved_methods in zip(class_results, classes_involved_methods):
+            if isinstance(involved_methods, Exception):
+                logger.error(f"Error analyzing methods in class {class_result['class_name']}: {involved_methods}")
+                continue
+            logger.debug(f"Analyzing methods in {class_result['class_name']}")
+            class_result['involved_methods'] = involved_methods
+            total_methods_analyzed += len(involved_methods)
+            logger.debug(f"Found {len(involved_methods)} involved methods")
+        
+        # Log behavior analysis results
+        logger.log_behavior_analysis(behavior_id, behavior_name, {
+            "class_results": class_results
+        })
+        
+        return {
+            "behavior_id": behavior_id,
+            "class_results": class_results
+        }, total_methods_analyzed
+        
     
     def save_results(self, report: Dict, save_summary: bool = True):
         """Save analysis results to files."""

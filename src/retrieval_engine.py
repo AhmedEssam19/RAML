@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import List, Dict, Optional, Tuple
 from langchain_chroma import Chroma
@@ -62,19 +63,27 @@ class MalwareRetrievalEngine:
         # Stage 2: LLM re-ranking and explanation
         re_ranked_results = []
         seen_signatures = set()
-        
+        filtered_docs_and_scores = []
         for doc, score in docs_and_scores:
             class_signature = f"L{doc.metadata['class_name']};"
             if class_signature in seen_signatures:
                 continue
             seen_signatures.add(class_signature)
-            
-            # Assess relevance using LLM
-            relevance_score, explanation = await self._assess_class_relevance(
-                doc, behavior_id, behavior_description, score
-            )
-            
+            filtered_docs_and_scores.append((doc, score))
+        
+        tasks = [
+            self._assess_class_relevance(doc, behavior_id, behavior_description, score)
+            for doc, score in filtered_docs_and_scores
+        ]
+
+        relevance_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for (doc, score), re_ranked_result in zip(filtered_docs_and_scores, relevance_results):
+            if isinstance(re_ranked_result, Exception):
+                logger.error(f"Error re-ranking class {doc.metadata['class_name']}: {re_ranked_result}")
+                continue
+            relevance_score, explanation = re_ranked_result
             if relevance_score >= CONFIG["retrieval"]["relevance_threshold"]:
+                class_signature = f"L{doc.metadata['class_name']};"
                 re_ranked_results.append({
                     'class_name': doc.metadata['class_name'],
                     'class_signature': class_signature,
