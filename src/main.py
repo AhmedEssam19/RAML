@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore", message=".*bcrypt version.*")
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="FastAPI Auth Service", root_path="/api")
+app = FastAPI(title="FastAPI Auth Service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,8 +18,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(user_routes.router)
-app.include_router(analysis_routes.router)
+app.include_router(user_routes.router, prefix="/api")
+app.include_router(analysis_routes.router, prefix="/api")
 
 @app.get("/")
 def root():
