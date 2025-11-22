@@ -55,8 +55,8 @@ def send_email(recipient: str, body: str):
     password = os.environ.get('EMAIL_PASSWORD')
     msg = MIMEText(body)
     msg['Subject'] = "RAML Request Status Update"
-    msg['From'] = sender
+    msg['From'] = sender # type: ignore
     msg['To'] = recipient
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
-       smtp_server.login(sender, password)
-       smtp_server.sendmail(sender, recipient, msg.as_string())
+       smtp_server.login(sender, password) # type: ignore
+       smtp_server.sendmail(sender, recipient, msg.as_string()) # type: ignore
