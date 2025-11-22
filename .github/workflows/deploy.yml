@@ -10,6 +10,7 @@ env:
   ECS_SERVICE: raml-backend-service
   ECS_CLUSTER: RAML
   ECS_TASK_DEFINITION_FAMILY: raml-backend
+  TASK_CONTAINER_NAME: raml-backend
 
 jobs:
   lock_file:
@@ -56,7 +57,7 @@ jobs:
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
         task-definition: task-definition.json
-        container-name: agent
+        container-name: ${{ env.TASK_CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
 
     - name: Deploy Amazon ECS task definition
