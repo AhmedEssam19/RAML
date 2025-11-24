@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from passlib.context import CryptContext
+from datetime import timedelta
 from .. import models, schemas
+from ..auth import create_access_token, create_refresh_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -42,9 +44,21 @@ def login_user(user: schemas.UserLogin, db: Session):
     if not pwd_context.verify(user.password, str(db_user.hashed_password)):
         raise HTTPException(status_code=401, detail="Incorrect password")
 
+    access_token = create_access_token(
+        data={"sub": db_user.username, "user_id": db_user.id},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": db_user.username, "user_id": db_user.id}
+    )
+
     return {
         "message": "Login successful",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
         "user": {
+            "id": db_user.id,
             "username": db_user.username,
             "email": db_user.email
         }
