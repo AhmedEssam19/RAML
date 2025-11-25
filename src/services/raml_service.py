@@ -29,8 +29,8 @@ async def analyze_apk_with_raml(apk_path: str, user_email: str = "ahmed.mohamed8
         await analyzer.setup_system(force_rebuild=False)
         result = await analyzer.analyze_behaviors(list(range(1, 13)))
         report_generator = ReportGenerator(output_dir="reports")
-        report = report_generator.save_report(result)
-        
+        report_generator.save_report(result)
+
         # send_email(user_email, "Your request is complete. Jump to the dashboard to view it!")
         return result
 
