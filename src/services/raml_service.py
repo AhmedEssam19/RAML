@@ -31,17 +31,17 @@ async def analyze_apk_with_raml(apk_path: str, user_email: str = "ahmed.mohamed8
         report_generator = ReportGenerator(output_dir="reports")
         report_generator.save_report(result)
 
-        # send_email(user_email, "Your request is complete. Jump to the dashboard to view it!")
+        send_email(user_email, "Your request is complete. Jump to the dashboard to view it!")
         return result
 
     except subprocess.CalledProcessError as e:
-        # send_email(user_email, "Bad Luck! Your request failed")
+        send_email(user_email, "Bad Luck! Your request failed")
         print(f"Command failed with exit code {e.returncode}:")
         print(f"STDOUT: {e.stdout}")
         print(f"STDERR: {e.stderr}")
     
     except Exception as e:
-        # send_email(user_email, "Bad Luck! Your request failed")
+        send_email(user_email, "Bad Luck! Your request failed")
         pass
 
 

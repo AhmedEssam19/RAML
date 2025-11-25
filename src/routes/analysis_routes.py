@@ -39,7 +39,7 @@ async def upload_apk(
         f.write(await file.read())
 
     # Submit the analysis task
-    result = analyze_apk_with_raml.delay(apk_path)
+    result = analyze_apk_with_raml.delay(apk_path, user_email)
     # Create APK report record in database with "Started" status
     apk_report = models.APKReport(
         user_email=user_email,
