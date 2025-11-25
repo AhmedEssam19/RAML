@@ -41,18 +41,19 @@ async def upload_apk(
         f.write(await file.read())
 
     # Submit the analysis task
-    result = analyze_apk_with_raml.delay(apk_path, user_email)
     # Create APK report record in database with "Started" status
     apk_report = models.APKReport(
         user_email=user_email,
         apk_filename=filename,
-        task_id=result.id,
         status="Started"
     )
     db.add(apk_report)
     db.commit()
     db.refresh(apk_report)
     
+    result = analyze_apk_with_raml.delay(apk_path, user_email, apk_report.id)
+    apk_report.task_id = result.id
+    db.commit()
     return JSONResponse({"task_id": result.id, "status": "Task submitted", "report_id": apk_report.id})
 
 

@@ -18,7 +18,7 @@ class APKReport(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_email = Column(String, ForeignKey("users.email"), index=True)
     apk_filename = Column(String)
-    task_id = Column(String, unique=True, index=True)
+    task_id = Column(String, unique=True, nullable=True)
     status = Column(String, default="Started")  # Started, In Progress, Completed, Failed
     markdown_report = Column(Text, nullable=True)  # Stores markdown content or null if not ready
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
