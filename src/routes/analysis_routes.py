@@ -10,6 +10,11 @@ from .. import models, schemas
 from celery.result import AsyncResult
 from celery import states
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse
+import markdown
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -133,3 +138,43 @@ async def get_analysis_status(
         db.commit()
     
     return JSONResponse({"status": status_msg, "result": result.result if result.state == states.SUCCESS else None})
+
+
+@router.get("/report/{report_id}/download")
+async def download_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Get report
+    report = db.query(models.APKReport).filter(models.APKReport.id == report_id).first()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Only owner can download
+    user = db.query(models.User).filter(models.User.username == current_user["username"]).first()
+    if not user or user.email != report.user_email: # type: ignore
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if not report.markdown_report: # type: ignore
+        raise HTTPException(status_code=400, detail="Report not ready yet")
+
+    output_path = f"downloads/report_{report_id}.pdf"
+    os.makedirs("downloads", exist_ok=True)
+
+    pdf = canvas.Canvas(output_path, pagesize=letter)
+    text_object = pdf.beginText(40, 750)
+
+    md_lines = report.markdown_report.split("\n")
+    for line in md_lines:
+        text_object.textLine(line)
+
+    pdf.drawText(text_object)
+    pdf.save()
+
+    return FileResponse(
+        output_path,
+        media_type="application/pdf",
+        filename=f"{report.apk_filename}_report.pdf"
+    )
