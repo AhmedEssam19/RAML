@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 import markdown
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-
+from fastapi.responses import Response
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -140,41 +140,36 @@ async def get_analysis_status(
     return JSONResponse({"status": status_msg, "result": result.result if result.state == states.SUCCESS else None})
 
 
+
 @router.get("/report/{report_id}/download")
-async def download_report(
+async def download_markdown_report(
     report_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    # Get report
+    # Fetch report
     report = db.query(models.APKReport).filter(models.APKReport.id == report_id).first()
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    # Only owner can download
+    # Ensure user owns the report
     user = db.query(models.User).filter(models.User.username == current_user["username"]).first()
-    if not user or user.email != report.user_email: # type: ignore
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.email != report.user_email:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    if not report.markdown_report: # type: ignore
+    if report.markdown_report is None:
         raise HTTPException(status_code=400, detail="Report not ready yet")
 
-    output_path = f"downloads/report_{report_id}.pdf"
-    os.makedirs("downloads", exist_ok=True)
+    filename = f"{report.apk_filename}_report.md"
 
-    pdf = canvas.Canvas(output_path, pagesize=letter)
-    text_object = pdf.beginText(40, 750)
-
-    md_lines = report.markdown_report.split("\n")
-    for line in md_lines:
-        text_object.textLine(line)
-
-    pdf.drawText(text_object)
-    pdf.save()
-
-    return FileResponse(
-        output_path,
-        media_type="application/pdf",
-        filename=f"{report.apk_filename}_report.pdf"
+    return Response(
+        content=report.markdown_report,
+        media_type="text/markdown",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
     )
