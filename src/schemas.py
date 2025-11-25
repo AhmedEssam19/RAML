@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
 
 class UserBase(BaseModel):
@@ -29,7 +30,7 @@ class APKReportCreate(BaseModel):
 
 class APKReportUpdate(BaseModel):
     status: str = None
-    markdown_report: str = None
+    markdown_report: Optional[str] = None
 
 
 class APKReportResponse(BaseModel):
@@ -38,7 +39,7 @@ class APKReportResponse(BaseModel):
     apk_filename: str
     task_id: str
     status: str
-    markdown_report: str = None
+    markdown_report: Optional[str] = None
     created_at: datetime
 
     class Config:

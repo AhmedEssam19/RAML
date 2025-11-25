@@ -19,8 +19,9 @@ def register_user(user: schemas.UserCreate, db: Session):
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    password_bytes = user.password.encode("utf-8")[:72]
-    password = password_bytes.decode("utf-8", errors="ignore")
+    password = user.password
+    while len(password.encode("utf-8")) > 72:
+        password = password[:-1]
     hashed_pw = pwd_context.hash(password)
     new_user = models.User(username=user.username, email = user.email, hashed_password=hashed_pw)
     db.add(new_user)
@@ -41,7 +42,12 @@ def login_user(user: schemas.UserLogin, db: Session):
     if not db_user:
         raise HTTPException(status_code=404, detail=not_found_msg)
 
-    if not pwd_context.verify(user.password, str(db_user.hashed_password)):
+    # Truncate password to 72 bytes at character level (same as registration)
+    password = user.password
+    while len(password.encode("utf-8")) > 72:
+        password = password[:-1]
+    
+    if not pwd_context.verify(password, str(db_user.hashed_password)):
         raise HTTPException(status_code=401, detail="Incorrect password")
 
     access_token = create_access_token(

@@ -1,13 +1,15 @@
 import os
 
-from fastapi import APIRouter, UploadFile, File, Query, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from ..services.raml_service import analyze_apk_with_raml
 from ..database import get_db
+from ..auth import get_current_user
 from .. import models, schemas
 from celery.result import AsyncResult
 from celery import states
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -15,7 +17,19 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
-async def upload_apk(file: UploadFile = File(...), user_email: str = Query(...), db: Session = Depends(get_db)):
+async def upload_apk(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload and analyze an APK file. Requires valid JWT token."""
+    # Get user email from authenticated user
+    user = db.query(models.User).filter(models.User.username == current_user["username"]).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    user_email = user.email
+    
     filename = file.filename or ""
     if not filename.endswith(".apk"):
         raise HTTPException(status_code=400, detail="Only APK files allowed")
@@ -41,9 +55,18 @@ async def upload_apk(file: UploadFile = File(...), user_email: str = Query(...),
     return JSONResponse({"task_id": result.id, "status": "Task submitted", "report_id": apk_report.id})
 
 
-@router.get("/reports/{user_email}")
-async def get_user_reports(user_email: str, db: Session = Depends(get_db)):
-    """Fetch all APK reports for a specific user"""
+@router.get("/reports")
+async def get_user_reports(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Fetch all APK reports for the authenticated user. Requires valid JWT token."""
+    # Get user email from authenticated user
+    user = db.query(models.User).filter(models.User.username == current_user["username"]).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    user_email = user.email
     reports = db.query(models.APKReport).filter(models.APKReport.user_email == user_email).order_by(models.APKReport.created_at.desc()).all()
     
     # Enrich each report with current task status from Celery
@@ -53,26 +76,38 @@ async def get_user_reports(user_email: str, db: Session = Depends(get_db)):
         
         # Update status based on Celery state
         if task_result.state == states.PENDING:
-            report.status = "Pending"
+            setattr(report, "status", "Pending")
         elif task_result.state == states.STARTED:
-            report.status = "In Progress"
+            setattr(report, "status", "In Progress")
         elif task_result.state == states.SUCCESS:
-            report.status = "Completed"
+            setattr(report, "status", "Completed")
             # task_result.result contains the analysis output; could store as markdown
         elif task_result.state == states.FAILURE:
-            report.status = "Failed"
+            setattr(report, "status", "Failed")
         
         enriched_reports.append(schemas.APKReportResponse.from_orm(report))
     
-    return JSONResponse([report.dict() for report in enriched_reports])
+
+    return JSONResponse(content=jsonable_encoder([report.dict() for report in enriched_reports]))
 
 
 @router.get("/status/{task_id}")
-async def get_analysis_status(task_id: str, db: Session = Depends(get_db)):
+async def get_analysis_status(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get analysis status for a specific task. Requires valid JWT token."""
     result = AsyncResult(task_id)
     
     # Fetch the report record to update its status
     report = db.query(models.APKReport).filter(models.APKReport.task_id == task_id).first()
+    
+    # Verify that the user can only access their own report
+    if report:
+        user = db.query(models.User).filter(models.User.username == current_user["username"]).first()
+        if not user or user.email != report.user_email: # type: ignore
+            raise HTTPException(status_code=403, detail="Forbidden: Cannot access another user's report")
     
     if result.state == states.PENDING:
         status_msg = "Pending"
@@ -82,20 +117,20 @@ async def get_analysis_status(task_id: str, db: Session = Depends(get_db)):
         status_msg = "Completed"
         # Store result/markdown in database if needed
         if report:
-            report.markdown_report = str(result.result)
-            report.status = "Completed"
+            report.markdown_report = str(result.result) # type: ignore
+            setattr(report, "status", "Completed")
             db.commit()
     elif result.state == states.FAILURE:
         status_msg = "Failed"
         if report:
-            report.status = "Failed"
+            setattr(report, "status", "Failed")
             db.commit()
     else:
         status_msg = result.state
     
     # Update report status in DB
     if report:
-        report.status = status_msg
+        setattr(report, "status", status_msg)
         db.commit()
     
     return JSONResponse({"status": status_msg, "result": result.result if result.state == states.SUCCESS else None})
