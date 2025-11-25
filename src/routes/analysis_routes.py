@@ -11,9 +11,6 @@ from celery.result import AsyncResult
 from celery import states
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse
-import markdown
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 from fastapi.responses import Response
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
